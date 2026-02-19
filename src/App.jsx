@@ -113,17 +113,37 @@ async function fetchHitRate(playerName, line, marketKey) {
   const statKey = MARKET_TO_STAT[marketKey]
   const headers = { Authorization: BDLIE_KEY }
 
+  const normalize = s => s.toLowerCase().replace(/[^a-z]/g, '')
+
   const searchRes = await fetch(
-    `${BDLIE_BASE}/nba/v1/players?search=${encodeURIComponent(playerName)}&per_page=5`,
+    `${BDLIE_BASE}/nba/v1/players?search=${encodeURIComponent(playerName)}&per_page=10`,
     { headers },
   )
   if (searchRes.status === 429) throw new Error('rate limited — wait a moment')
   if (!searchRes.ok) throw new Error(`search ${searchRes.status}`)
-  const { data: found } = await searchRes.json()
-  if (!found?.length) throw new Error('player not found')
+  const { data: firstPass } = await searchRes.json()
+
+  let player = firstPass?.[0] ?? null
+
+  // Fallback: search by last name and match normalized full name
+  // (handles suffixes like Jr., initials like P.J., accented chars, etc.)
+  if (!player) {
+    const lastName = playerName.split(' ').slice(-1)[0]
+    const fallbackRes = await fetch(
+      `${BDLIE_BASE}/nba/v1/players?search=${encodeURIComponent(lastName)}&per_page=25`,
+      { headers },
+    )
+    if (fallbackRes.status === 429) throw new Error('rate limited — wait a moment')
+    if (!fallbackRes.ok) throw new Error(`search ${fallbackRes.status}`)
+    const { data: candidates } = await fallbackRes.json()
+    const target = normalize(playerName)
+    player = candidates?.find(p => normalize(`${p.first_name} ${p.last_name}`) === target) ?? null
+  }
+
+  if (!player) throw new Error('player not found')
 
   const statsRes = await fetch(
-    `${BDLIE_BASE}/nba/v1/stats?player_ids[]=${found[0].id}&seasons[]=2024&per_page=100&postseason=false`,
+    `${BDLIE_BASE}/nba/v1/stats?player_ids[]=${player.id}&seasons[]=2024&per_page=100&postseason=false`,
     { headers },
   )
   if (statsRes.status === 429) throw new Error('rate limited — wait a moment')
