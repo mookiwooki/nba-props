@@ -1,0 +1,299 @@
+/* ── Layout ─────────────────────────────────────────────── */
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 1rem;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #f0f0f0;
+}
+
+.header-sub {
+  font-size: 0.75rem;
+  color: #555;
+  margin-top: 0.2rem;
+  letter-spacing: 0.05em;
+}
+
+.quota {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: #444;
+  white-space: nowrap;
+}
+
+.quota-item {
+  color: #555;
+}
+
+.quota-sep {
+  color: #333;
+}
+
+/* ── Controls ───────────────────────────────────────────── */
+.controls {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 220px;
+}
+
+.select-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: #555;
+}
+
+.select {
+  background: #111;
+  color: #e0e0e0;
+  border: 1px solid #2e2e2e;
+  border-radius: 4px;
+  padding: 0.55rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+  transition: border-color 0.15s;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
+.select:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Game header ────────────────────────────────────────── */
+.game-header {
+  font-size: 0.9rem;
+  color: #bbb;
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.market-badge {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  background: #1e3a5f;
+  color: #4a9eff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+}
+
+.hint {
+  font-size: 0.7rem;
+  color: #3a3a3a;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── Table ──────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+thead tr {
+  border-bottom: 1px solid #2a2a2a;
+}
+
+th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: #555;
+  font-weight: 500;
+}
+
+th:not(:first-child) {
+  text-align: right;
+}
+
+/* ── Player rows ────────────────────────────────────────── */
+.player-row {
+  border-bottom: 1px solid #1a1a1a;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.player-row:hover {
+  background: #161616;
+}
+
+.player-row.is-expanded {
+  background: #161616;
+  border-bottom-color: transparent;
+}
+
+.player-row td {
+  padding: 0.65rem 0.75rem;
+}
+
+.td-name {
+  color: #e0e0e0;
+  white-space: nowrap;
+}
+
+.td-line {
+  text-align: right;
+  color: #999;
+}
+
+.td-odds {
+  text-align: right;
+  font-weight: 500;
+}
+
+.positive {
+  color: #4caf76;
+}
+
+.negative {
+  color: #e0e0e0;
+}
+
+.book-tag {
+  display: block;
+  font-size: 0.6rem;
+  color: #444;
+  letter-spacing: 0.03em;
+  margin-top: 0.1rem;
+}
+
+/* ── Expanded books row ─────────────────────────────────── */
+.books-row td {
+  padding: 0 0 0.75rem 0;
+}
+
+.books-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #0d0d0d;
+  border: 1px solid #1e1e1e;
+  border-radius: 4px;
+}
+
+.book-card {
+  background: #141414;
+  border: 1px solid #222;
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  min-width: 120px;
+  flex: 1;
+}
+
+.book-card-name {
+  font-size: 0.7rem;
+  color: #666;
+  margin-bottom: 0.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-card-line {
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 0.4rem;
+}
+
+.book-card-line strong {
+  color: #bbb;
+  font-weight: 500;
+}
+
+.book-card-odds {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* ── States ─────────────────────────────────────────────── */
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #555;
+  font-size: 0.8rem;
+  padding: 1.5rem 0;
+}
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #333;
+  border-top-color: #4a9eff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error {
+  background: #1e0a0a;
+  border: 1px solid #4a1515;
+  color: #e07070;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+}
+
+.empty {
+  color: #444;
+  font-size: 0.82rem;
+  padding: 2rem 0;
+  letter-spacing: 0.05em;
+}
