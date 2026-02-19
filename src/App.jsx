@@ -157,36 +157,51 @@ async function fetchHitRate(playerName, line, marketKey) {
     { headers },
   )
   if (statsRes.status === 429) throw new Error(rateLimitMsg(statsRes))
-  if (!statsRes.ok) throw new Error(`stats ${statsRes.status}`)
-  const { data: raw } = await statsRes.json()
 
-  // Sort most recent first; min > 0 filters DNPs
-  const values = raw
-    .filter(g => g.min > 0)
-    .sort((a, b) => new Date(b.game.date) - new Date(a.game.date))
-    .map(g => g[statKey] ?? 0)
+  if (statsRes.ok) {
+    const { data: raw } = await statsRes.json()
 
-  if (!values.length) throw new Error('no game data')
+    // Sort most recent first; min > 0 filters DNPs
+    const values = raw
+      .filter(g => g.min > 0)
+      .sort((a, b) => new Date(b.game.date) - new Date(a.game.date))
+      .map(g => g[statKey] ?? 0)
 
-  const calc = arr => {
-    if (!arr.length) return null
-    const hits = arr.filter(v => v > line).length
-    return { hits, total: arr.length, rate: hits / arr.length }
+    if (!values.length) throw new Error('no game data')
+
+    const calc = arr => {
+      if (!arr.length) return null
+      const hits = arr.filter(v => v > line).length
+      return { hits, total: arr.length, rate: hits / arr.length }
+    }
+
+    const season = calc(values)
+    const l10    = calc(values.slice(0, 10))
+    const l5     = calc(values.slice(0, 5))
+    const l3     = calc(values.slice(0, 3))
+
+    const weighted =
+      (season.rate) * 0.10 +
+      (l10.rate)    * 0.20 +
+      (l5.rate)     * 0.30 +
+      (l3.rate)     * 0.40
+
+    return { type: 'hitrate', season, l10, l5, l3, weighted }
   }
 
-  const season = calc(values)
-  const l10    = calc(values.slice(0, 10))
-  const l5     = calc(values.slice(0, 5))
-  const l3     = calc(values.slice(0, 3))
+  // Stats endpoint requires paid plan — fall back to season averages
+  if (statsRes.status !== 401) throw new Error(`stats ${statsRes.status}`)
 
-  // Weighted score — heavier on recent games
-  const weighted =
-    (season.rate) * 0.10 +
-    (l10.rate)    * 0.20 +
-    (l5.rate)     * 0.30 +
-    (l3.rate)     * 0.40
+  const avgRes = await fetch(
+    `${BDLIE_BASE}/nba/v1/season_averages?season=2024&player_ids[]=${player.id}`,
+    { headers },
+  )
+  if (avgRes.status === 429) throw new Error(rateLimitMsg(avgRes))
+  if (!avgRes.ok) throw new Error(`averages ${avgRes.status}`)
+  const { data: avgs } = await avgRes.json()
+  if (!avgs?.length) throw new Error('no season data')
 
-  return { season, l10, l5, l3, weighted }
+  return { type: 'average', avg: avgs[0][statKey] ?? 0 }
 }
 
 function rateClass(rate) {
@@ -209,6 +224,27 @@ function HitRatePanel({ data, line, marketLabel }) {
     return (
       <div className="hitrate-panel hitrate-err">
         hit rate: {data.error}
+      </div>
+    )
+  }
+
+  if (data.type === 'average') {
+    const { avg } = data
+    const delta = avg - line
+    const ratio = avg / line
+    const cls = ratio >= 1.1 ? 'hr-hot' : ratio >= 0.9 ? 'hr-mid' : 'hr-cold'
+    return (
+      <div className="hitrate-panel">
+        <div className="hitrate-hd">
+          SEASON AVG <span className="hitrate-line">vs {line} {marketLabel.toLowerCase()}</span>
+        </div>
+        <div className="hitrate-cells">
+          <div className="hitrate-cell">
+            <div className="hr-lbl">AVG</div>
+            <div className={`hr-val ${cls}`}>{avg.toFixed(1)}</div>
+            <div className="hr-sub">{delta >= 0 ? '+' : ''}{delta.toFixed(1)} vs line</div>
+          </div>
+        </div>
       </div>
     )
   }
