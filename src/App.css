@@ -297,3 +297,81 @@ th:not(:first-child) {
   padding: 2rem 0;
   letter-spacing: 0.05em;
 }
+
+/* ── Hit Rate ────────────────────────────────────────────── */
+.hitrate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #080808;
+  border: 1px solid #1c1c1c;
+  border-radius: 4px;
+}
+
+.hitrate-loading {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.2rem;
+  font-size: 0.75rem;
+  color: #444;
+}
+
+.hitrate-err {
+  font-size: 0.72rem;
+  color: #774444;
+}
+
+.hitrate-hd {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  color: #3a3a3a;
+}
+
+.hitrate-line {
+  color: #555;
+  letter-spacing: 0;
+}
+
+.hitrate-cells {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.hitrate-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.hitrate-score {
+  border-left: 1px solid #1e1e1e;
+  padding-left: 1rem;
+  margin-left: 0.1rem;
+}
+
+.hr-lbl {
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  color: #3a3a3a;
+}
+
+.hr-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.hr-sub {
+  font-size: 0.58rem;
+  color: #383838;
+  line-height: 1.3;
+}
+
+.hr-hot { color: #4caf76; }
+.hr-mid { color: #d4a030; }
+.hr-cold { color: #c05050; }

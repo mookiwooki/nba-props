@@ -4,6 +4,9 @@ import './App.css'
 const API_KEY = '3c131ee836e805f728c9734da74f187d'
 const BASE_URL = 'https://api.the-odds-api.com/v4'
 
+const BDLIE_KEY = 'ffa62304-5ba5-4e55-8053-03bd8ee9d921'
+const BDLIE_BASE = 'https://api.balldontlie.io'
+
 const MARKETS = [
   { key: 'player_points', label: 'Points' },
   { key: 'player_rebounds', label: 'Rebounds' },
@@ -12,6 +15,15 @@ const MARKETS = [
   { key: 'player_blocks', label: 'Blocks' },
   { key: 'player_steals', label: 'Steals' },
 ]
+
+const MARKET_TO_STAT = {
+  player_points: 'pts',
+  player_rebounds: 'reb',
+  player_assists: 'ast',
+  player_threes: 'fg3m',
+  player_blocks: 'blk',
+  player_steals: 'stl',
+}
 
 function formatOdds(price) {
   if (price === null || price === undefined) return '—'
@@ -95,6 +107,118 @@ function oddsClass(price) {
   return price > 0 ? 'positive' : 'negative'
 }
 
+// ── Hit rate helpers ──────────────────────────────────────
+
+async function fetchHitRate(playerName, line, marketKey) {
+  const statKey = MARKET_TO_STAT[marketKey]
+  const headers = { Authorization: BDLIE_KEY }
+
+  const searchRes = await fetch(
+    `${BDLIE_BASE}/nba/v1/players?search=${encodeURIComponent(playerName)}&per_page=5`,
+    { headers },
+  )
+  if (searchRes.status === 429) throw new Error('rate limited — wait a moment')
+  if (!searchRes.ok) throw new Error(`search ${searchRes.status}`)
+  const { data: found } = await searchRes.json()
+  if (!found?.length) throw new Error('player not found')
+
+  const statsRes = await fetch(
+    `${BDLIE_BASE}/nba/v1/stats?player_ids[]=${found[0].id}&seasons[]=2024&per_page=100&postseason=false`,
+    { headers },
+  )
+  if (statsRes.status === 429) throw new Error('rate limited — wait a moment')
+  if (!statsRes.ok) throw new Error(`stats ${statsRes.status}`)
+  const { data: raw } = await statsRes.json()
+
+  // Sort most recent first; min > 0 filters DNPs
+  const values = raw
+    .filter(g => g.min > 0)
+    .sort((a, b) => new Date(b.game.date) - new Date(a.game.date))
+    .map(g => g[statKey] ?? 0)
+
+  if (!values.length) throw new Error('no game data')
+
+  const calc = arr => {
+    if (!arr.length) return null
+    const hits = arr.filter(v => v > line).length
+    return { hits, total: arr.length, rate: hits / arr.length }
+  }
+
+  const season = calc(values)
+  const l10    = calc(values.slice(0, 10))
+  const l5     = calc(values.slice(0, 5))
+  const l3     = calc(values.slice(0, 3))
+
+  // Weighted score — heavier on recent games
+  const weighted =
+    (season.rate) * 0.10 +
+    (l10.rate)    * 0.20 +
+    (l5.rate)     * 0.30 +
+    (l3.rate)     * 0.40
+
+  return { season, l10, l5, l3, weighted }
+}
+
+function rateClass(rate) {
+  if (rate >= 0.65) return 'hr-hot'
+  if (rate >= 0.50) return 'hr-mid'
+  return 'hr-cold'
+}
+
+function HitRatePanel({ data, line, marketLabel }) {
+  if (!data || data.loading) {
+    return (
+      <div className="hitrate-panel hitrate-loading">
+        <span className="spinner" />
+        <span>loading hit rate…</span>
+      </div>
+    )
+  }
+
+  if (data.error) {
+    return (
+      <div className="hitrate-panel hitrate-err">
+        hit rate: {data.error}
+      </div>
+    )
+  }
+
+  const { season, l10, l5, l3, weighted } = data
+
+  return (
+    <div className="hitrate-panel">
+      <div className="hitrate-hd">
+        HIT RATE <span className="hitrate-line">vs {line} {marketLabel.toLowerCase()}</span>
+      </div>
+      <div className="hitrate-cells">
+        {[
+          { label: 'SEASON', r: season },
+          { label: 'L10',    r: l10 },
+          { label: 'L5',     r: l5 },
+          { label: 'L3',     r: l3 },
+        ].map(({ label, r }) => (
+          <div key={label} className="hitrate-cell">
+            <div className="hr-lbl">{label}</div>
+            <div className={`hr-val ${rateClass(r.rate)}`}>
+              {Math.round(r.rate * 100)}%
+            </div>
+            <div className="hr-sub">{r.hits}/{r.total}</div>
+          </div>
+        ))}
+        <div className="hitrate-cell hitrate-score">
+          <div className="hr-lbl">SCORE</div>
+          <div className={`hr-val ${rateClass(weighted)}`}>
+            {Math.round(weighted * 100)}%
+          </div>
+          <div className="hr-sub">wtd</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main app ──────────────────────────────────────────────
+
 export default function App() {
   const [games, setGames] = useState([])
   const [selectedGameId, setSelectedGameId] = useState('')
@@ -105,6 +229,7 @@ export default function App() {
   const [loadingProps, setLoadingProps] = useState(false)
   const [error, setError] = useState(null)
   const [quota, setQuota] = useState({ used: null, remaining: null })
+  const [hitRates, setHitRates] = useState({})
 
   // Fetch today's games on mount
   useEffect(() => {
@@ -163,8 +288,29 @@ export default function App() {
       })
   }, [selectedGameId, selectedMarket])
 
-  const togglePlayer = name =>
-    setExpandedPlayer(prev => (prev === name ? null : name))
+  async function loadHitRate(name, line, marketKey, cacheKey) {
+    setHitRates(prev => ({ ...prev, [cacheKey]: { loading: true } }))
+    try {
+      const result = await fetchHitRate(name, line, marketKey)
+      setHitRates(prev => ({ ...prev, [cacheKey]: { loading: false, ...result } }))
+    } catch (err) {
+      setHitRates(prev => ({ ...prev, [cacheKey]: { loading: false, error: err.message } }))
+    }
+  }
+
+  const togglePlayer = name => {
+    const next = expandedPlayer === name ? null : name
+    setExpandedPlayer(next)
+    if (next) {
+      const player = players.find(p => p.name === name)
+      if (player) {
+        const cacheKey = `${name}|${selectedMarket}|${player.line}`
+        if (!hitRates[cacheKey]) {
+          loadHitRate(name, player.line, selectedMarket, cacheKey)
+        }
+      }
+    }
+  }
 
   const selectedGame = games.find(g => g.id === selectedGameId)
 
@@ -243,7 +389,7 @@ export default function App() {
             </div>
           )}
 
-          <div className="hint">click a row to see all books</div>
+          <div className="hint">click a row to see all books + hit rate</div>
 
           <div className="table-wrap">
             <table>
@@ -256,54 +402,63 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {players.map(player => (
-                  <React.Fragment key={player.name}>
-                    <tr
-                      className={`player-row${expandedPlayer === player.name ? ' is-expanded' : ''}`}
-                      onClick={() => togglePlayer(player.name)}
-                    >
-                      <td className="td-name">{player.name}</td>
-                      <td className="td-line">{player.line}</td>
-                      <td className={`td-odds ${oddsClass(player.bestOver)}`}>
-                        {formatOdds(player.bestOver)}
-                        {player.bestOverBook && (
-                          <span className="book-tag">{player.bestOverBook}</span>
-                        )}
-                      </td>
-                      <td className={`td-odds ${oddsClass(player.bestUnder)}`}>
-                        {formatOdds(player.bestUnder)}
-                        {player.bestUnderBook && (
-                          <span className="book-tag">{player.bestUnderBook}</span>
-                        )}
-                      </td>
-                    </tr>
-
-                    {expandedPlayer === player.name && (
-                      <tr className="books-row">
-                        <td colSpan={4}>
-                          <div className="books-grid">
-                            {Object.entries(player.books).map(([book, odds]) => (
-                              <div key={book} className="book-card">
-                                <div className="book-card-name">{book}</div>
-                                <div className="book-card-line">
-                                  Line: <strong>{odds.line}</strong>
-                                </div>
-                                <div className="book-card-odds">
-                                  <span className={oddsClass(odds.over)}>
-                                    O&nbsp;{formatOdds(odds.over)}
-                                  </span>
-                                  <span className={oddsClass(odds.under)}>
-                                    U&nbsp;{formatOdds(odds.under)}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                {players.map(player => {
+                  const cacheKey = `${player.name}|${selectedMarket}|${player.line}`
+                  const mktLabel = MARKETS.find(m => m.key === selectedMarket)?.label ?? ''
+                  return (
+                    <React.Fragment key={player.name}>
+                      <tr
+                        className={`player-row${expandedPlayer === player.name ? ' is-expanded' : ''}`}
+                        onClick={() => togglePlayer(player.name)}
+                      >
+                        <td className="td-name">{player.name}</td>
+                        <td className="td-line">{player.line}</td>
+                        <td className={`td-odds ${oddsClass(player.bestOver)}`}>
+                          {formatOdds(player.bestOver)}
+                          {player.bestOverBook && (
+                            <span className="book-tag">{player.bestOverBook}</span>
+                          )}
+                        </td>
+                        <td className={`td-odds ${oddsClass(player.bestUnder)}`}>
+                          {formatOdds(player.bestUnder)}
+                          {player.bestUnderBook && (
+                            <span className="book-tag">{player.bestUnderBook}</span>
+                          )}
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                ))}
+
+                      {expandedPlayer === player.name && (
+                        <tr className="books-row">
+                          <td colSpan={4}>
+                            <HitRatePanel
+                              data={hitRates[cacheKey]}
+                              line={player.line}
+                              marketLabel={mktLabel}
+                            />
+                            <div className="books-grid">
+                              {Object.entries(player.books).map(([book, odds]) => (
+                                <div key={book} className="book-card">
+                                  <div className="book-card-name">{book}</div>
+                                  <div className="book-card-line">
+                                    Line: <strong>{odds.line}</strong>
+                                  </div>
+                                  <div className="book-card-odds">
+                                    <span className={oddsClass(odds.over)}>
+                                      O&nbsp;{formatOdds(odds.over)}
+                                    </span>
+                                    <span className={oddsClass(odds.under)}>
+                                      U&nbsp;{formatOdds(odds.under)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
