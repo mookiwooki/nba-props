@@ -109,6 +109,16 @@ function oddsClass(price) {
 
 // ── Hit rate helpers ──────────────────────────────────────
 
+function rateLimitMsg(res) {
+  const retryAfter = res.headers.get('Retry-After')
+  if (retryAfter) {
+    const secs = parseInt(retryAfter, 10)
+    if (!isNaN(secs)) return `rate limited — retry in ${secs}s`
+    return `rate limited — retry after ${retryAfter}`
+  }
+  return 'rate limited — wait a moment'
+}
+
 async function fetchHitRate(playerName, line, marketKey) {
   const statKey = MARKET_TO_STAT[marketKey]
   const headers = { Authorization: BDLIE_KEY }
@@ -119,7 +129,7 @@ async function fetchHitRate(playerName, line, marketKey) {
     `${BDLIE_BASE}/nba/v1/players?search=${encodeURIComponent(playerName)}&per_page=10`,
     { headers },
   )
-  if (searchRes.status === 429) throw new Error('rate limited — wait a moment')
+  if (searchRes.status === 429) throw new Error(rateLimitMsg(searchRes))
   if (!searchRes.ok) throw new Error(`search ${searchRes.status}`)
   const { data: firstPass } = await searchRes.json()
 
@@ -133,7 +143,7 @@ async function fetchHitRate(playerName, line, marketKey) {
       `${BDLIE_BASE}/nba/v1/players?search=${encodeURIComponent(lastName)}&per_page=25`,
       { headers },
     )
-    if (fallbackRes.status === 429) throw new Error('rate limited — wait a moment')
+    if (fallbackRes.status === 429) throw new Error(rateLimitMsg(fallbackRes))
     if (!fallbackRes.ok) throw new Error(`search ${fallbackRes.status}`)
     const { data: candidates } = await fallbackRes.json()
     const target = normalize(playerName)
@@ -146,7 +156,7 @@ async function fetchHitRate(playerName, line, marketKey) {
     `${BDLIE_BASE}/nba/v1/stats?player_ids[]=${player.id}&seasons[]=2024&per_page=100&postseason=false`,
     { headers },
   )
-  if (statsRes.status === 429) throw new Error('rate limited — wait a moment')
+  if (statsRes.status === 429) throw new Error(rateLimitMsg(statsRes))
   if (!statsRes.ok) throw new Error(`stats ${statsRes.status}`)
   const { data: raw } = await statsRes.json()
 
