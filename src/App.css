@@ -52,6 +52,26 @@
   color: #333;
 }
 
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.bdl-timer {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.bdl-wait {
+  color: #b8860b;
+}
+
+.bdl-ready {
+  color: #444;
+}
+
 /* ── Controls ───────────────────────────────────────────── */
 .controls {
   display: flex;

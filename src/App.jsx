@@ -296,6 +296,15 @@ export default function App() {
   const [error, setError] = useState(null)
   const [quota, setQuota] = useState({ used: null, remaining: null })
   const [hitRates, setHitRates] = useState({})
+  const [lastBdlCall, setLastBdlCall] = useState(null)
+  const [, setBdlTick] = useState(0)
+
+  // Tick every second while a BDL call has been made, to keep elapsed time fresh
+  useEffect(() => {
+    if (!lastBdlCall) return
+    const id = setInterval(() => setBdlTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [lastBdlCall])
 
   // Fetch today's games on mount
   useEffect(() => {
@@ -355,6 +364,7 @@ export default function App() {
   }, [selectedGameId, selectedMarket])
 
   async function loadHitRate(name, line, marketKey, cacheKey) {
+    setLastBdlCall(Date.now())
     setHitRates(prev => ({ ...prev, [cacheKey]: { loading: true } }))
     try {
       const result = await fetchHitRate(name, line, marketKey)
@@ -387,13 +397,24 @@ export default function App() {
           <div className="header-title">NBA Props</div>
           <div className="header-sub">best price across US sportsbooks</div>
         </div>
-        {quota.used !== null && (
-          <div className="quota">
-            <span className="quota-item">{quota.used} used</span>
-            <span className="quota-sep">/</span>
-            <span className="quota-item">{quota.remaining} left</span>
-          </div>
-        )}
+        <div className="header-right">
+          {lastBdlCall && (() => {
+            const elapsed = Math.floor((Date.now() - lastBdlCall) / 1000)
+            const ready = elapsed >= 60
+            return (
+              <div className={`bdl-timer ${ready ? 'bdl-ready' : 'bdl-wait'}`}>
+                BDL {ready ? `${elapsed}s ago` : `retry in ${60 - elapsed}s`}
+              </div>
+            )
+          })()}
+          {quota.used !== null && (
+            <div className="quota">
+              <span className="quota-item">{quota.used} used</span>
+              <span className="quota-sep">/</span>
+              <span className="quota-item">{quota.remaining} left</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="controls">
